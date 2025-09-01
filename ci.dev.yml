@@ -1,0 +1,34 @@
+schemaVersion: v0.2
+prepare:
+  steps:
+    - name: install frontend dependencies
+      command: cd frontend && npm install
+    - name: install backend dependencies
+      command: cd backend && npm install
+test:
+  steps:
+    - name: run backend tests
+      command: cd backend && npm test
+    - name: run frontend tests
+      command: cd frontend && npm test
+run:
+  frontend:
+    steps:
+      - name: start frontend application in dev mode
+        command: "cd frontend && NODE_ENV=development DEBUG=true npm run dev"
+    plan: 4
+    replicas: 1
+    isPublic: true
+    network:
+      path: /
+      stripPath: false
+  api:
+    steps:
+      - name: deploy api endpoints
+        command: cd backend && NODE_ENV=development npm start
+    plan: 4
+    replicas: 1
+    isPublic: true
+    network:
+      path: /api
+      stripPath: false

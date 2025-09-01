@@ -1,0 +1,40 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+stages:
+  - deploy
+
+codesphere-deploy:
+  image: ghcr.io/codesphere-cloud/codesphere-monorepo/integrations/gitlab-ci:latest
+  stage: deploy
+  script:
+    - node /app/server.js
+  variables:
+    ACCESS_TOKEN: $CI_ACCESS_TOKEN
+    EMAIL: $CODESPHERE_EMAIL
+    PASSWORD: $CODESPHERE_PASSWORD
+    TEAM: $CODESPHERE_TEAM
+    PLAN: 'Micro'
+    ON_DEMAND: 'true'
+    ENV: |
+      NODE_ENV=development
+      DEBUG=true
+  environment:
+    name: 'Preview Deployment NodeJS MR_$CI_MERGE_REQUEST_IID'
+    on_stop: codesphere-teardown
+
+codesphere-teardown:
+  when: manual
+  image: ghcr.io/codesphere-cloud/codesphere-monorepo/integrations/gitlab-ci:latest
+  stage: deploy
+  script:
+    - node /app/server.js
+  variables:
+    ACCESS_TOKEN: $CI_ACCESS_TOKEN
+    EMAIL: $CODESPHERE_EMAIL
+    PASSWORD: $CODESPHERE_PASSWORD
+    TEAM: $CODESPHERE_TEAM
+  environment:
+    name: 'Preview Deployment NodeJS MR_$CI_MERGE_REQUEST_IID'
+    action: stop
