@@ -2,7 +2,9 @@
 
 $KUBECTL_GL=/home/user/app/bin/kubectl-gardenlogin
 
-# Check if the file exists using the -f flag
+mkdir -p ./bin
+
+# Check if already run
 if [ -f "$KUBECTL_GL" ]; then
     echo "gardenlogin already exists in ./bin directory. Exit script..."
     exit
