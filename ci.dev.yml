@@ -1,34 +1,26 @@
 schemaVersion: v0.2
 prepare:
   steps:
-    - name: install frontend dependencies
-      command: cd frontend && npm install
-    - name: install backend dependencies
-      command: cd backend && npm install
+    - name: update Nix version
+      command: curl -L https://nixos.org/nix/install | sh
+    - name: install kubectl
+      command: nix-env -iA nixpkgs.kubectl nixpkgs.kubelogin-oidc
+    - name: install gardenlogin
+      command: ./install_gardenlogin.sh
+    - name: install dependencies
+      command: npm install
 test:
   steps:
-    - name: run backend tests
-      command: cd backend && npm test
-    - name: run frontend tests
-      command: cd frontend && npm test
+    - name: run tests
+      command: npm test
 run:
-  frontend:
-    steps:
-      - name: start frontend application in dev mode
-        command: "cd frontend && NODE_ENV=development DEBUG=true npm run dev"
-    plan: 4
-    replicas: 1
-    isPublic: true
-    network:
-      path: /
-      stripPath: false
   api:
     steps:
       - name: deploy api endpoints
-        command: cd backend && NODE_ENV=development npm start
-    plan: 4
+        command: NODE_ENV=development npm start
+    plan: 101
     replicas: 1
     isPublic: true
     network:
       path: /api
-      stripPath: false
+      stripPath: true

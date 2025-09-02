@@ -1,6 +1,9 @@
 #!/usr/bin/bash
 
-$KUBECTL_GL=/home/user/app/bin/kubectl-gardenlogin
+# Workaround since there is currently no gardenlogin nix package
+# See https://github.com/gardener/gardenctl-v2/pull/366
+
+KUBECTL_GL=/home/user/app/bin/kubectl-gardenlogin
 
 mkdir -p ./bin
 
@@ -26,4 +29,4 @@ chmod +x "./gardenlogin_${os}_${arch}"
 mv "./gardenlogin_${os}_${arch}" ./bin/gardenlogin
 
 # create kubectl-gardenlogin symlink
-ln -s /home/user/app/bin/gardenlogin /home/user/app/bin/kubectl-gardenlogin
+ln -s /home/user/app/bin/gardenlogin $KUBECTL_GL
