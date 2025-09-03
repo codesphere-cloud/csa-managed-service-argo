@@ -1,26 +1,28 @@
 schemaVersion: v0.2
 prepare:
   steps:
-    - name: update Nix version
-      command: curl -L https://nixos.org/nix/install | sh
+    - name: install NodeJS 24
+      command: nix-env -iA nixpkgs.nodejs_24
     - name: install kubectl
       command: nix-env -iA nixpkgs.kubectl nixpkgs.kubelogin-oidc
     - name: install gardenlogin
       command: ./install_gardenlogin.sh
-    - name: install dependencies
-      command: npm install
+    - name: install node dependencies
+      command: pnpm install
 test:
   steps:
     - name: run tests
-      command: npm test
+      command: pnpm run test
 run:
   api:
     steps:
-      - name: deploy api endpoints
-        command: NODE_ENV=development npm start
+      - name: check env vars
+        command: 'echo "$KUBECONFIG - $GL_HOME" '
+      - name: run
+        command: pnpm run dev
     plan: 101
     replicas: 1
     isPublic: true
     network:
-      path: /api
+      path: /
       stripPath: true
