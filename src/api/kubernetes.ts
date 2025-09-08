@@ -2,7 +2,7 @@ import * as k8s from '@kubernetes/client-node';
 import express from "express";
 
 import {Shoot, getDefaultShoot} from '../resources/k8s'; 
-
+import { getAdminKubeconfig } from '../lib/gardener-helpers';
 const router = express.Router();
 
 const kc = new k8s.KubeConfig();
@@ -43,25 +43,45 @@ router.get('/', async (req, res) => {
             return res.status(500).json({ error: 'Unexpected API response format.' });
         }
 
+        // Convert query IDs to an array for consistent filtering
+        const requestedIds = Array.isArray(ids) ? ids : (ids ? [ids] : []);
+
         const filteredShoots = shootRes.filter((s: any) => {
-            // Check if 'labels' and the specific label exist on the object
-            return s.metadata && s.metadata.labels && s.metadata.labels['managed-service.codesphere.com/id'];
+            const shootId = s.metadata?.labels?.['managed-service.codesphere.com/id'];
+            if (!shootId) {
+                return false; // Skip objects without the required label
+            }
+            // If no IDs were requested, return all Shoots.
+            // Otherwise, check if the Shoot's ID is in the requested IDs array.
+            return requestedIds.length === 0 || requestedIds.includes(shootId);
         });
 
-        if (!ids) {
-            res.json(filteredShoots.map((s: any) => s.metadata.labels['managed-service.codesphere.com/id']));
-            return;
+        // If no IDs were specifically requested, return the filtered list of IDs
+        if (requestedIds.length === 0) {
+            return res.json(filteredShoots.map((s: any) => s.metadata.labels['managed-service.codesphere.com/id']));
         }
-        res.json(filteredShoots.map((s: any) => ({
-            [s.labels['managed-service.codesphere.com/id']]: {
-                plan,
-                config: {},
-                details: {
-                  healthy: false,
-                  kubeconfig: '',
+
+        // Use Promise.all to wait for all asynchronous calls to complete
+        const shootsWithKubeconfig = await Promise.all(filteredShoots.map(async (s: any) => {
+            const shootName = s.metadata.name;
+            const namespace = s.metadata.namespace;
+
+            // Call the new function and await the result
+            const kubeconfig = await getAdminKubeconfig(shootName, namespace);
+
+            return {
+                [s.metadata.labels['managed-service.codesphere.com/id']]: {
+                    plan,
+                    config: {},
+                    details: {
+                      status: s.metadata.labels['shoot.gardener.cloud/status'],
+                      kubeconfig: kubeconfig, // <-- Populate the kubeconfig field
+                    },
                 },
-            },
-        })));
+            };
+        }));
+
+        res.json(shootsWithKubeconfig);
     }
     catch (err) {
       console.error('Error fetching Shoot:', err);

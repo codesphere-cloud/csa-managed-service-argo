@@ -20,6 +20,7 @@ interface Worker {
     type: string;
     size: string;
   };
+  zones: string[];
 }
 
 interface WorkersSettings {
@@ -167,6 +168,7 @@ export function getDefaultShoot(): Shoot {
               image: { name: 'ubuntu', version: '22.0.4' },
             },
             volume: { type: 'pd-standard', size: '50Gi' },
+            zones: ['europe-west1-b'],
           },
         ],
         workersSettings: {
