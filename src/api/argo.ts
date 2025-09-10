@@ -23,9 +23,6 @@ const applicationObj = {
 
 const plan = {
     id: 0,
-    workerMin: 1,
-    workerMax: 2,
-    maxUnavailable: 0,
 };
 
 router.get('/', async (req, res) => {
@@ -106,33 +103,26 @@ router.delete('/:id', async (req, res) => {
     const id = req.params.id;
     try {
 
-        // // Step 1: Add the required annotation for deletion confirmation
-        // see https://gardener.cloud/docs/guides/administer-shoots/create-delete-shoot/
-     
-        const annotationPatch = [
-            {
-                op: 'add',
-                path: '/metadata/annotations/confirmation.gardener.cloud~1deletion',
-                value: 'true'
-            }
-        ];
+        const response = await k8sApi.listNamespacedCustomObject(applicationObj);
+        const applications = response.items;
 
-        await k8sApi.patchNamespacedCustomObject({
-            ...applicationObj,
-            name: getShootName(id),
-            body: annotationPatch,
+        const appToDelete = applications.find((s: any) => s.metadata.labels['managed-service.codesphere.com/id'] === id);
+        
+        if (!appToDelete) {
+            return res.status(404).json({ message: `No Application found with id ${id}` });
         }
-        );
+
+        const appName = appToDelete.metadata.name
 
         await k8sApi.deleteNamespacedCustomObject({
             ...applicationObj,
-            name: getShootName(id),
+            name: appName,
         });
-        res.status(202).json({ message: `Gardener Shoot ${getShootName(id)} deleted successfully` })
+        res.status(202).json({ message: `Application ${appName} deleted successfully` })
     }
     catch (err) {
-        console.error(`Error creating Gardener Shoot ${getShootName(id)}:`, err);
-      res.status(500).json({ message: `Error deleting Gardener Shoot ${getShootName(id)}:`, error: err });
+        console.error(`Error deleting Application with id ${id}:`, err);
+        res.status(500).json({ message: `Error deleting Application with id ${id}:`, error: err });
     }
 });
 
