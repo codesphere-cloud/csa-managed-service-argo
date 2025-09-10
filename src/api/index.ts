@@ -3,7 +3,7 @@ import express from "express";
 import type MessageResponse from "../interfaces/message-response.js";
 
 import emojis from "./emojis.js";
-import kubernetes from "./kubernetes.js";
+import argo from "./argo";
 
 const router = express.Router();
 
@@ -42,6 +42,6 @@ function authenticateToken(req, res, next) {
 }
 
 router.use("/emojis", emojis);
-router.use("/kubernetes", authenticateToken, kubernetes);
+router.use("/argo", authenticateToken, argo);
 
 export default router;

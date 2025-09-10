@@ -75,7 +75,7 @@ typings/
 dist
 
 # Secrets
-.kube/service-account.kubeconfig.yaml
+.kube/*.kubeconfig.yaml
 
 # Binaries
 bin/*
