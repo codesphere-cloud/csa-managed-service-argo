@@ -51,7 +51,7 @@ export function getDefaultMinioApplication(): Application {
       source: {
         repoURL: 'git@gitlab.opencode.de:govtech-deutschland/govtech-platform/gtp-cloud-abstraction.git',
         path: 'manifests/minio/minio-tenant',
-        targetRevision: 'feature/argocd_dev',
+        targetRevision: 'feature/codesphere',
         helm: {
           parameters: [
             {
