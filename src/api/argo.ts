@@ -23,6 +23,7 @@ const applicationObj = {
 
 const plan = {
     id: 0,
+    argocdInstance: 0
 };
 
 router.get('/', async (req, res) => {
@@ -50,7 +51,8 @@ router.get('/', async (req, res) => {
                     plan,
                     config: {},
                     details: {
-                      status: 'OK',
+                      healthStatus: s.spec.status.health.status,
+                      syncStatus: s.spec.status.sync.status,
                     },
                 },
             };
