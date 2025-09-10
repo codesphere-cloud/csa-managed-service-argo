@@ -51,8 +51,8 @@ router.get('/', async (req, res) => {
                     plan,
                     config: {},
                     details: {
-                      healthStatus: s.spec.status.health.status,
-                      syncStatus: s.spec.status.sync.status,
+                      healthStatus: s.status.health.status,
+                      syncStatus: s.status.sync.status,
                     },
                 },
             };
