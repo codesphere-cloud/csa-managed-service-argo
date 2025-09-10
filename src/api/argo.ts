@@ -1,6 +1,8 @@
 import * as k8s from '@kubernetes/client-node';
 import express from "express";
 
+import * as yaml from 'js-yaml';
+
 import { getDefaultMinioApplication, Application} from '../resources/minio';
 
 
@@ -12,11 +14,11 @@ kc.loadFromDefault();
 const k8sApi = kc.makeApiClient(k8s.CustomObjectsApi);
 
 const applicationObj = {
-    namespace: '',
+    namespace: 'argocd',
     singular: 'application',
     plural: 'applications',
-    group: 'core.gardener.cloud',
-    version: 'v1beta1',
+    group: 'argoproj.io',
+    version: 'v1alpha1',
 };
 
 const plan = {
@@ -75,6 +77,13 @@ router.post('/', async (req, res) => {
     appl.metadata.labels['managed-service.codesphere.com/id'] = id;
 
     try {
+
+      // Convert the object to a YAML string for logging
+      const yamlOutput = yaml.dump(appl);
+    
+      // Log the YAML string to the console
+      console.log('Sending the following object to Kubernetes:\n' + yamlOutput);
+    
       const result = await k8sApi.createNamespacedCustomObject({
             ...applicationObj,
             body: appl,
