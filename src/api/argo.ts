@@ -65,7 +65,10 @@ router.get('/', async (req, res) => {
             ];
         }));
 
-        res.json(applicationsWithDetails);
+        // Convert the array of arrays into a single object
+        const applicationsObject = Object.fromEntries(applicationsWithDetails);
+
+        res.json(applicationsObject);
     }
     catch (err) {
       console.error('Error fetching Applications:', err);
