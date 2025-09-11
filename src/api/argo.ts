@@ -60,6 +60,8 @@ router.get('/', async (req, res) => {
                     details: {
                       healthStatus: s.status.health.status,
                       syncStatus: s.status.sync.status,
+                      s3ApiEndpoint: s.status.summary.externalURLs[0], 
+                      consoleUrl: s.status.summary.externalURLs[1], 
                     },
                 },
             ];
