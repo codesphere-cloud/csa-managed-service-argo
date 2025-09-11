@@ -23,7 +23,9 @@ const applicationObj = {
 
 const plan = {
     id: 0,
-    argocdInstance: 0
+    parameters: {
+        argocdInstance: 0
+    }
 };
 
 router.get('/', async (req, res) => {
