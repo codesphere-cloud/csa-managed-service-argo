@@ -24,7 +24,7 @@ const applicationObj = {
 const plan = {
     id: 0,
     parameters: {
-        argocdInstance: 0
+        argocdInstance: 1
     }
 };
 
