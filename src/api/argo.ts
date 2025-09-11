@@ -43,8 +43,14 @@ router.get('/', async (req, res) => {
             return res.json(applications.map((s: any) => s.metadata.labels['managed-service.codesphere.com/id']));
         }
 
+                // Filter the applications array based on the requested IDs
+        const filteredApplications = applications.filter((s: any) => {
+            const applicationId = s.metadata.labels['managed-service.codesphere.com/id'];
+            return requestedIds.includes(applicationId);
+        });
+
         // Use Promise.all to wait for all asynchronous calls to complete
-        const applicationsWithDetails = await Promise.all(applications.map(async (s: any) => {
+        const applicationsWithDetails = await Promise.all(filteredApplications.map(async (s: any) => {
             const shootName = s.metadata.name;
             const namespace = s.metadata.namespace;
 
