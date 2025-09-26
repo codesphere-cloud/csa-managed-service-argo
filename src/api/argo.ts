@@ -37,10 +37,14 @@ router.get('/', async (req, res) => {
         // Convert query IDs to an array for consistent filtering
         const requestedIds = Array.isArray(ids) ? ids : (ids ? [ids] : []);
 
+		const validApplications = applications.filter((s: any) => 
+    		s.metadata?.labels?.['managed-service.codesphere.com/id'] !== undefined
+		);
+
 
         // If no IDs were specifically requested, return the filtered list of IDs
         if (requestedIds.length === 0) {
-            return res.json(applications.map((s: any) => s.metadata.labels['managed-service.codesphere.com/id']));
+            return res.json(validApplications.map((s: any) => s.metadata?.labels?.['managed-service.codesphere.com/id']));
         }
 
         // Filter the applications array based on the requested IDs
