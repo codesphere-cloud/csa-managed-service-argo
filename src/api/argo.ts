@@ -37,10 +37,10 @@ router.get('/', async (req, res) => {
         // Convert query IDs to an array for consistent filtering
         const requestedIds = Array.isArray(ids) ? ids : (ids ? [ids] : []);
 
+		// There might be foreign Applications not created by this
 		const validApplications = applications.filter((s: any) => 
     		s.metadata?.labels?.['managed-service.codesphere.com/id'] !== undefined
 		);
-
 
         // If no IDs were specifically requested, return the filtered list of IDs
         if (requestedIds.length === 0) {
@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
         }
 
         // Filter the applications array based on the requested IDs
-        const filteredApplications = applications.filter((s: any) => {
+        const filteredApplications = validApplications.filter((s: any) => {
             const applicationId = s.metadata.labels['managed-service.codesphere.com/id'];
             return requestedIds.includes(applicationId);
         });
@@ -124,7 +124,12 @@ router.delete('/:id', async (req, res) => {
         const response = await k8sApi.listNamespacedCustomObject(applicationObj);
         const applications = response.items;
 
-        const appToDelete = applications.find((s: any) => s.metadata.labels['managed-service.codesphere.com/id'] === id);
+		// There might be foreign Applications not created by this
+		const validApplications = applications.filter((s: any) => 
+    		s.metadata?.labels?.['managed-service.codesphere.com/id'] !== undefined
+		);
+
+        const appToDelete = validApplications.find((s: any) => s.metadata.labels['managed-service.codesphere.com/id'] === id);
         
         if (!appToDelete) {
             return res.status(404).json({ message: `No Application found with id ${id}` });
