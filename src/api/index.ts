@@ -2,24 +2,19 @@ import express from "express";
 
 import type MessageResponse from "../interfaces/message-response.js";
 
-import argo from "./argo";
+import helm from "./helm";
+import { env } from "../env";
 
 const router = express.Router();
 
-// Step 1: Define your pre-shared secret token
-// It's best practice to use an environment variable for this.
-const PRE_SHARED_TOKEN = process.env.API_TOKEN;
-
 router.get<object, MessageResponse>("/", (req, res) => {
   res.json({
-    message: "API - 👋🌎🌍🌏",
+    message: "Helm Managed Service Provider API",
   });
 });
 
-
-
-// Step 2: Create the middleware function
-function authenticateToken(req, res, next) {
+// Authentication middleware
+function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
     // Get the Authorization header from the request
     const authHeader = req.headers['authorization'];
     // The header format is "Bearer TOKEN", so split it to get the token
@@ -30,8 +25,8 @@ function authenticateToken(req, res, next) {
         return res.status(401).send('Access denied. Token is required.');
     }
 
-    // Compare the received token with your pre-shared secret token
-    if (token === PRE_SHARED_TOKEN) {
+    // Compare the received token with the API token from environment
+    if (token === env.API_TOKEN) {
         // Token is valid, proceed to the next middleware/route handler
         next();
     } else {
@@ -40,6 +35,6 @@ function authenticateToken(req, res, next) {
     }
 }
 
-router.use("/argo", authenticateToken, argo);
+router.use("/helm", authenticateToken, helm);
 
 export default router;
