@@ -17,54 +17,17 @@ const defaultPlan = {
  * @swagger
  * /api/v1/helm:
  *   get:
- *     summary: List all Helm releases
- *     description: Returns array of managed service IDs (Codesphere spec)
- *     tags: [Helm Releases]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Array of managed service IDs
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: string
- *                 format: uuid
- *               example: ["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", "b1ffbc99-9c0b-4ef8-bb6d-6bb9bd381a23"]
- *       401:
- *         description: Unauthorized - Missing or invalid token
- *       500:
- *         description: Server error
- */
-router.get('/', async (req, res) => {
-  try {
-    const releases = await helmManager.listReleases();
-    // Return just the array of IDs (Codesphere spec)
-    res.json(releases.map(r => r.id));
-  } catch (error) {
-    console.error('Error listing Helm releases:', error);
-    res.status(500).json({
-      message: 'Error listing Helm releases',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
-
-/**
- * @swagger
- * /api/v1/helm:
- *   get:
- *     summary: Get status of specific Helm releases
- *     description: Returns detailed information about specified managed services (Codesphere spec)
+ *     summary: List or get status of Helm releases
+ *     description: |
+ *       Without query parameters: Returns array of managed service IDs
+ *       With id query parameter(s): Returns detailed information about specified managed services (Codesphere spec)
  *     tags: [Helm Releases]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: id
- *         required: true
+ *         required: false
  *         schema:
  *           oneOf:
  *             - type: string
@@ -73,34 +36,143 @@ router.get('/', async (req, res) => {
  *               items:
  *                 type: string
  *                 format: uuid
- *         description: One or more managed service IDs (max 40)
+ *         description: Optional. One or more managed service IDs (max 40). If omitted, returns list of all IDs.
  *     responses:
  *       200:
- *         description: Object with detailed information for each requested ID
+ *         description: Success
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               additionalProperties:
- *                 type: object
- *                 properties:
- *                   plan:
+ *               oneOf:
+ *                 - type: array
+ *                   items:
+ *                     type: string
+ *                     format: uuid
+ *                   example: ["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", "b1ffbc99-9c0b-4ef8-bb6d-6bb9bd381a23"]
+ *                 - type: object
+ *                   additionalProperties:
  *                     type: object
  *                     properties:
- *                       id:
- *                         type: integer
- *                       parameters:
+ *                       plan:
  *                         type: object
- *                   config:
- *                     type: object
- *                   details:
- *                     type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           parameters:
+ *                             type: object
+ *                       config:
+ *                         type: object
+ *                         description: The configuration values for this managed service
+ *                       details:
+ *                         type: object
+ *                         description: Runtime details and status information
+ *                   example:
+ *                     "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11":
+ *                       plan:
+ *                         id: 0
+ *                         parameters: {}
+ *                       config:
+ *                         repoUrl: "https://github.com/example/helm-charts.git"
+ *                         targetRevision: "main"
+ *                         path: "charts/webapp"
+ *                       details:
+ *                         releaseName: "managed-a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+ *                         namespace: "managed-a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+ *                         status: "deployed"
  *       401:
  *         description: Unauthorized
  *       500:
  *         description: Server error
  */
-// This route is handled by the same GET / handler with query parameter check
+router.get('/', async (req, res) => {
+  const ids = req.query.id;
+
+  // If no id parameter, return simple list of all IDs
+  if (!ids) {
+    try {
+      const releases = await helmManager.listReleases();
+      // Return just the array of IDs (Codesphere spec)
+      return res.json(releases.map(r => r.id));
+    } catch (error) {
+      console.error('Error listing Helm releases:', error);
+      return res.status(500).json({
+        message: 'Error listing Helm releases',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // If id parameter provided, return detailed information
+  try {
+    const requestedIds = Array.isArray(ids) ? ids as string[] : [ids as string];
+
+    // Codesphere spec: max 40 IDs
+    if (requestedIds.length > 40) {
+      return res.status(400).json({
+        message: 'Maximum of 40 IDs allowed per request',
+      });
+    }
+
+    const releases = await helmManager.listReleases(requestedIds);
+
+    // Get detailed information for each release
+    const detailedReleases = await Promise.all(
+      releases.map(async (release) => {
+        try {
+          const details = await helmManager.getReleaseDetails(release.id);
+          return [
+            release.id,
+            {
+              plan: defaultPlan,
+              config: {
+                repoUrl: release.repoUrl,
+                targetRevision: release.targetRevision,
+                path: release.path,
+              },
+              details: {
+                releaseName: release.releaseName,
+                namespace: release.namespace,
+                status: details.status.status,
+                lastDeployed: details.status.lastDeployed,
+                createdAt: release.createdAt,
+                updatedAt: release.updatedAt,
+              },
+            },
+          ];
+        } catch {
+          // If we can't get live details, return basic info
+          return [
+            release.id,
+            {
+              plan: defaultPlan,
+              config: {
+                repoUrl: release.repoUrl,
+                targetRevision: release.targetRevision,
+                path: release.path,
+              },
+              details: {
+                releaseName: release.releaseName,
+                namespace: release.namespace,
+                status: 'unknown',
+                createdAt: release.createdAt,
+                updatedAt: release.updatedAt,
+              },
+            },
+          ];
+        }
+      }),
+    );
+
+    const releasesObject = Object.fromEntries(detailedReleases);
+    res.json(releasesObject);
+  } catch (error) {
+    console.error('Error fetching Helm release details:', error);
+    res.status(500).json({
+      message: 'Error fetching Helm release details',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
 
 /**
  * @swagger
@@ -348,84 +420,6 @@ router.delete('/:id', async (req, res) => {
 
     res.status(500).json({
       message: 'Error deleting Helm release',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
-
-// Special handler for GET with ?id query parameters (getStatus)
-router.get('/', async (req, res, next) => {
-  const ids = req.query.id;
-
-  // If no id parameter, let the list handler above handle it
-  if (!ids) {
-    return next();
-  }
-
-  try {
-    const requestedIds = Array.isArray(ids) ? ids as string[] : [ids as string];
-
-    // Codesphere spec: max 40 IDs
-    if (requestedIds.length > 40) {
-      return res.status(400).json({
-        message: 'Maximum of 40 IDs allowed per request',
-      });
-    }
-
-    const releases = await helmManager.listReleases(requestedIds);
-
-    // Get detailed information for each release
-    const detailedReleases = await Promise.all(
-      releases.map(async (release) => {
-        try {
-          const details = await helmManager.getReleaseDetails(release.id);
-          return [
-            release.id,
-            {
-              plan: defaultPlan,
-              config: {},  // Config is not returned in GET (Codesphere spec)
-              details: {
-                releaseName: release.releaseName,
-                namespace: release.namespace,
-                status: details.status.status,
-                lastDeployed: details.status.lastDeployed,
-                createdAt: release.createdAt,
-                updatedAt: release.updatedAt,
-                repoUrl: release.repoUrl,
-                targetRevision: release.targetRevision,
-                path: release.path,
-              },
-            },
-          ];
-        } catch (error) {
-          // If we can't get details, return basic info
-          return [
-            release.id,
-            {
-              plan: defaultPlan,
-              config: {},
-              details: {
-                releaseName: release.releaseName,
-                namespace: release.namespace,
-                status: 'unknown',
-                createdAt: release.createdAt,
-                updatedAt: release.updatedAt,
-                repoUrl: release.repoUrl,
-                targetRevision: release.targetRevision,
-                path: release.path,
-              },
-            },
-          ];
-        }
-      }),
-    );
-
-    const releasesObject = Object.fromEntries(detailedReleases);
-    res.json(releasesObject);
-  } catch (error) {
-    console.error('Error fetching Helm release details:', error);
-    res.status(500).json({
-      message: 'Error fetching Helm release details',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

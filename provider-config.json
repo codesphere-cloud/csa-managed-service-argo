@@ -1,0 +1,88 @@
+{
+  "name": "helm-chart",
+  "api": {
+    "endpoint": "http://helm-managed-service.helm-system:3000/api/v1/helm"
+  },
+  "author": "Codesphere",
+  "category": "Infrastructure",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "repoUrl": {
+        "type": "string",
+        "description": "Git repository URL containing the Helm chart",
+        "readOnly": false
+      },
+      "targetRevision": {
+        "type": "string",
+        "description": "Git branch, tag, or commit SHA",
+        "default": "main",
+        "readOnly": false
+      },
+      "path": {
+        "type": "string",
+        "description": "Path to Helm chart within the repository",
+        "readOnly": false
+      },
+      "helmValues": {
+        "type": "string",
+        "description": "Helm values to override (non-sensitive) as JSON string",
+        "readOnly": false
+      }
+    }
+  },
+  "detailsSchema": {
+    "type": "object",
+    "properties": {
+      "releaseName": {
+        "type": "string",
+        "description": "Name of the Helm release"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Kubernetes namespace where the release is deployed"
+      },
+      "status": {
+        "type": "string",
+        "description": "Current status of the Helm release"
+      },
+      "lastDeployed": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Timestamp of the last deployment"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Timestamp when the release was created"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Timestamp of the last update"
+      }
+    }
+  },
+  "secretsSchema": {
+    "type": "object",
+    "properties": {
+      "sensitiveHelmValues": {
+        "type": "string",
+        "description": "Sensitive Helm values (e.g., passwords, API keys) as JSON string",
+        "readOnly": false
+      }
+    }
+  },
+  "description": "Deploy any Helm chart from a Git repository to Kubernetes.\nSupports both shared cluster and custom cluster deployment modes.\nIdeal for deploying containerized applications, databases, and infrastructure components.",
+  "displayName": "Helm Chart",
+  "iconUrl": "https://helm.sh/img/helm.svg",
+  "plans": [
+    {
+      "id": 0,
+      "name": "Standard",
+      "description": "Standard Helm deployment",
+      "parameters": {}
+    }
+  ],
+  "version": "v1"
+}

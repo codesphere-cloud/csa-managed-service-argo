@@ -33,11 +33,11 @@ PORT=3000
 API_TOKEN=your-secret-token
 
 # Global Helm service configuration
-GLOBAL_MODE=shared_cluster|custom_cluster
+MODE=shared_cluster|custom_cluster
 
 # Required for shared_cluster mode
-GLOBAL_KUBECONFIG=/path/to/kubeconfig
-GLOBAL_NAMESPACE_PATTERN=team-{teamId}-{appName}
+KUBECONFIG=/path/to/kubeconfig
+NAMESPACE_PATTERN=team-{teamId}-{appName}
 ```
 
 ### Deployment Modes
@@ -47,8 +47,8 @@ GLOBAL_NAMESPACE_PATTERN=team-{teamId}-{appName}
 In this mode, all Helm releases are deployed to a single Kubernetes cluster. Namespaces are generated using a pattern.
 
 **Required Global Config:**
-- `GLOBAL_KUBECONFIG`: Path to kubeconfig for the shared cluster
-- `GLOBAL_NAMESPACE_PATTERN`: Pattern for generating namespaces (e.g., `team-{teamId}-{appName}`)
+- `KUBECONFIG`: Path to kubeconfig for the shared cluster
+- `NAMESPACE_PATTERN`: Pattern for generating namespaces (e.g., `team-{teamId}-{appName}`)
 
 **Instance Config:**
 - `kubeConfig`: Not allowed (uses global kubeConfig)
@@ -245,7 +245,7 @@ Since OIDC browser login flows are not easily supported in automated environment
 
 1. Create a Service Account with appropriate permissions
 2. Download the Service Account kubeconfig
-3. Set `GLOBAL_KUBECONFIG` to the path of the downloaded file
+3. Set `KUBECONFIG` to the path of the downloaded file
 
 ### Helm CLI
 
@@ -285,12 +285,12 @@ PORT=3000
 API_TOKEN=your-secret-token
 
 # For shared_cluster mode
-GLOBAL_MODE=shared_cluster
-GLOBAL_KUBECONFIG=/path/to/kubeconfig
-GLOBAL_NAMESPACE_PATTERN=team-{teamId}-{appName}
+MODE=shared_cluster
+KUBECONFIG=/path/to/kubeconfig
+NAMESPACE_PATTERN=team-{teamId}-{appName}
 
 # For custom_cluster mode
-GLOBAL_MODE=custom_cluster
+MODE=custom_cluster
 ```
 
 ### Run Development Server

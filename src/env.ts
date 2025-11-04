@@ -1,15 +1,14 @@
 import { z } from "zod/v4";
-import { globalConfigSchema } from "./types/config";
+
+import { globalConfigSchema } from "./types/config.js";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().default(3000),
   API_TOKEN: z.string(),
-
-  // Global configuration
-  GLOBAL_MODE: z.enum(["custom_cluster", "shared_cluster"]).default("shared_cluster"),
-  GLOBAL_KUBECONFIG: z.string().optional(),
-  GLOBAL_NAMESPACE_PATTERN: z.string().optional(),
+  NAMESPACE_PATTERN: z.string().default("managed-{id}"),
+  KUBECONFIG_PROVIDER_ENDPOINT: z.string().optional(),
+  FALLBACK_KUBECONFIG: z.string().optional(),
 });
 
 try {
@@ -31,7 +30,7 @@ export const env = envSchema.parse(process.env);
 
 // Build global configuration from environment variables
 export const globalConfig = globalConfigSchema.parse({
-  mode: env.GLOBAL_MODE,
-  kubeConfig: env.GLOBAL_KUBECONFIG,
-  namespacePattern: env.GLOBAL_NAMESPACE_PATTERN,
+  namespacePattern: env.NAMESPACE_PATTERN,
+  kubeconfigProviderEndpoint: env.KUBECONFIG_PROVIDER_ENDPOINT,
+  fallbackKubeconfig: env.FALLBACK_KUBECONFIG,
 });

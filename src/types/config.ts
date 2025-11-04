@@ -2,21 +2,10 @@ import { z } from 'zod';
 
 // Global configuration schema
 export const globalConfigSchema = z.object({
-  mode: z.enum(['custom_cluster', 'shared_cluster']),
-  kubeConfig: z.string().optional(),
-  namespacePattern: z.string().optional(),
-}).refine(
-  (data) => {
-    // If mode is shared_cluster, kubeConfig and namespacePattern are required
-    if (data.mode === 'shared_cluster') {
-      return data.kubeConfig !== undefined && data.namespacePattern !== undefined;
-    }
-    return true;
-  },
-  {
-    message: "kubeConfig and namespacePattern are required when mode is 'shared_cluster'",
-  },
-);
+  namespacePattern: z.string(),
+  kubeconfigProviderEndpoint: z.string().optional(),
+  fallbackKubeconfig: z.string().optional(),
+});
 
 // Plan schema (Codesphere spec)
 export const planSchema = z.object({
@@ -29,17 +18,32 @@ export const configSchema = z.object({
   repoUrl: z.string().url(),
   targetRevision: z.string(),
   path: z.string(),
-  // For custom_cluster mode
-  kubeConfig: z.string().optional(),
-  namespace: z.string().optional(),
-  // Non-sensitive Helm values
-  helmValues: z.record(z.any()).optional(),
+  // Non-sensitive Helm values - can be object or stringified object
+  helmValues: z.union([
+    z.record(z.any()),
+    z.string().transform((val) => {
+      try {
+        return JSON.parse(val);
+      } catch {
+        return {};
+      }
+    }),
+  ]).optional().default({}),
 });
 
 // Secrets schema (Codesphere spec) - Sensitive configuration
 export const secretsSchema = z.object({
-  // Sensitive Helm values can go here
-  sensitiveHelmValues: z.record(z.any()).optional(),
+  // Sensitive Helm values can go here - can be object or stringified object
+  sensitiveHelmValues: z.union([
+    z.record(z.any()),
+    z.string().transform((val) => {
+      try {
+        return JSON.parse(val);
+      } catch {
+        return {};
+      }
+    }),
+  ]).optional().default({}),
 }).optional();
 
 // Request body for creating a managed service (Codesphere spec)

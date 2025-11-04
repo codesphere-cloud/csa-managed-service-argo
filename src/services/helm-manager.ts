@@ -1,7 +1,9 @@
-import * as k8s from '@kubernetes/client-node';
-import { helmClient } from './helm';
-import { globalConfig } from '../env';
-import type { Config, Secrets, HelmReleaseMetadata } from '../types/config';
+import * as k8s from "@kubernetes/client-node";
+
+import type { Config, HelmReleaseMetadata, Secrets } from "../types/config.js";
+
+import { helmClient } from "./helm.js";
+import { kubeconfigProvider } from "./kubeconfig-provider.js";
 
 /**
  * Manages Helm releases with metadata tracking via Kubernetes ConfigMaps
@@ -9,15 +11,16 @@ import type { Config, Secrets, HelmReleaseMetadata } from '../types/config';
 export class HelmManager {
   private k8sApi: k8s.CoreV1Api;
   private kubeConfig: k8s.KubeConfig;
-  private metadataNamespace = 'helm-managed-services';
-  private metadataLabelKey = 'managed-service.codesphere.com/id';
+  private metadataNamespace = "helm-managed-services";
+  private metadataLabelKey = "managed-service.codesphere.com/id";
 
   constructor(kubeConfigPath?: string) {
     this.kubeConfig = new k8s.KubeConfig();
 
     if (kubeConfigPath) {
       this.kubeConfig.loadFromFile(kubeConfigPath);
-    } else {
+    }
+    else {
       this.kubeConfig.loadFromDefault();
     }
 
@@ -30,7 +33,8 @@ export class HelmManager {
   private async ensureMetadataNamespace(): Promise<void> {
     try {
       await this.k8sApi.readNamespace({ name: this.metadataNamespace });
-    } catch (error: any) {
+    }
+    catch (error: any) {
       if (error.statusCode === 404) {
         // Create the namespace
         const namespace: k8s.V1Namespace = {
@@ -39,54 +43,10 @@ export class HelmManager {
           },
         };
         await this.k8sApi.createNamespace({ body: namespace });
-        console.log(`Created metadata namespace: ${this.metadataNamespace}`);
-      } else {
+      }
+      else {
         throw error;
       }
-    }
-  }
-
-  /**
-   * Generate namespace from pattern
-   */
-  private generateNamespace(id: string): string {
-    if (globalConfig.mode === 'custom_cluster') {
-      throw new Error('generateNamespace should not be called in custom_cluster mode');
-    }
-
-    if (!globalConfig.namespacePattern) {
-      throw new Error('namespacePattern is required in shared_cluster mode');
-    }
-
-    // Replace {id} in the pattern with the managed service ID
-    return globalConfig.namespacePattern.replace('{id}', id);
-  }
-
-  /**
-   * Get kubeconfig path based on mode
-   */
-  private getKubeConfig(config: Config): string | undefined {
-    if (globalConfig.mode === 'custom_cluster') {
-      if (!config.kubeConfig) {
-        throw new Error('kubeConfig is required in config for custom_cluster mode');
-      }
-      return config.kubeConfig;
-    } else {
-      return globalConfig.kubeConfig;
-    }
-  }
-
-  /**
-   * Get namespace based on mode
-   */
-  private getNamespace(id: string, config: Config): string {
-    if (globalConfig.mode === 'custom_cluster') {
-      if (!config.namespace) {
-        throw new Error('namespace is required in config for custom_cluster mode');
-      }
-      return config.namespace;
-    } else {
-      return this.generateNamespace(id);
     }
   }
 
@@ -114,7 +74,8 @@ export class HelmManager {
         namespace: this.metadataNamespace,
         body: configMap,
       });
-    } catch (error: any) {
+    }
+    catch (error: any) {
       if (error.statusCode === 409) {
         // ConfigMap already exists, update it
         await this.k8sApi.replaceNamespacedConfigMap({
@@ -122,7 +83,8 @@ export class HelmManager {
           namespace: this.metadataNamespace,
           body: configMap,
         });
-      } else {
+      }
+      else {
         throw error;
       }
     }
@@ -143,7 +105,8 @@ export class HelmManager {
       }
 
       return null;
-    } catch (error: any) {
+    }
+    catch (error: any) {
       if (error.statusCode === 404) {
         return null;
       }
@@ -160,7 +123,8 @@ export class HelmManager {
         name: `helm-release-${id}`,
         namespace: this.metadataNamespace,
       });
-    } catch (error: any) {
+    }
+    catch (error: any) {
       if (error.statusCode === 404) {
         // Already deleted, ignore
         return;
@@ -204,9 +168,10 @@ export class HelmManager {
     id: string,
     config: Config,
     secrets?: Secrets,
+    userToken?: string,
   ): Promise<HelmReleaseMetadata> {
-    const namespace = this.getNamespace(id, config);
-    const kubeConfig = this.getKubeConfig(config);
+    const { kubeconfig, namespace } = await kubeconfigProvider.getKubeconfig(id, userToken);
+
     const releaseName = `managed-${id}`;
 
     // Merge helmValues from config and sensitiveHelmValues from secrets
@@ -222,7 +187,7 @@ export class HelmManager {
       repoUrl: config.repoUrl,
       path: config.path,
       targetRevision: config.targetRevision,
-      kubeConfig,
+      kubeConfig: kubeconfig,
       values: allValues,
       createNamespace: true,
     });
@@ -251,17 +216,19 @@ export class HelmManager {
     id: string,
     config?: Partial<Config>,
     secrets?: Secrets,
+    userToken?: string,
   ): Promise<HelmReleaseMetadata> {
     const existingMetadata = await this.getMetadata(id);
     if (!existingMetadata) {
       throw new Error(`Release with id ${id} not found`);
     }
 
+    const { kubeconfig } = await kubeconfigProvider.getKubeconfig(id, userToken);
+
     // Merge configurations
     const repoUrl = config?.repoUrl ?? existingMetadata.repoUrl;
     const targetRevision = config?.targetRevision ?? existingMetadata.targetRevision;
     const path = config?.path ?? existingMetadata.path;
-    const kubeConfig = config?.kubeConfig ?? (globalConfig.mode === 'shared_cluster' ? globalConfig.kubeConfig : undefined);
 
     // Merge helmValues from config and sensitiveHelmValues from secrets
     const allValues = {
@@ -269,19 +236,17 @@ export class HelmManager {
       ...secrets?.sensitiveHelmValues,
     };
 
-    // Upgrade the Helm release
     await helmClient.upgrade({
       releaseName: existingMetadata.releaseName,
       namespace: existingMetadata.namespace,
       repoUrl,
       path,
       targetRevision,
-      kubeConfig,
+      kubeConfig: kubeconfig,
       values: allValues,
       install: false,
     });
 
-    // Update metadata
     const updatedMetadata: HelmReleaseMetadata = {
       ...existingMetadata,
       repoUrl,
@@ -298,19 +263,20 @@ export class HelmManager {
   /**
    * Delete a Helm release
    */
-  async deleteRelease(id: string): Promise<void> {
+  async deleteRelease(id: string, userToken?: string): Promise<void> {
     const metadata = await this.getMetadata(id);
     if (!metadata) {
       throw new Error(`Release with id ${id} not found`);
     }
 
-    const kubeConfig = globalConfig.mode === 'custom_cluster' ? undefined : globalConfig.kubeConfig;
+    // Get kubeconfig from provider
+    const { kubeconfig } = await kubeconfigProvider.getKubeconfig(id, userToken);
 
     // Uninstall the Helm release
     await helmClient.uninstall({
       releaseName: metadata.releaseName,
       namespace: metadata.namespace,
-      kubeConfig,
+      kubeConfig: kubeconfig,
     });
 
     // Delete metadata
@@ -320,16 +286,17 @@ export class HelmManager {
   /**
    * Get details of a specific Helm release including live status
    */
-  async getReleaseDetails(id: string): Promise<any> {
+  async getReleaseDetails(id: string, userToken?: string): Promise<any> {
     const metadata = await this.getMetadata(id);
     if (!metadata) {
       throw new Error(`Release with id ${id} not found`);
     }
 
-    const kubeConfig = globalConfig.mode === 'custom_cluster' ? undefined : globalConfig.kubeConfig;
-
     try {
-      const status = await helmClient.status(metadata.releaseName, metadata.namespace, kubeConfig);
+      // Get kubeconfig from provider
+      const { kubeconfig } = await kubeconfigProvider.getKubeconfig(id, userToken);
+
+      const status = await helmClient.status(metadata.releaseName, metadata.namespace, kubeconfig);
       return {
         metadata,
         status: {
@@ -339,13 +306,14 @@ export class HelmManager {
           notes: status.info?.notes,
         },
       };
-    } catch (error) {
+    }
+    catch (error) {
       // If we can't get status, return metadata only
       return {
         metadata,
         status: {
-          status: 'unknown',
-          error: error instanceof Error ? error.message : 'Failed to get status',
+          status: "unknown",
+          error: error instanceof Error ? error.message : "Failed to get status",
         },
       };
     }
