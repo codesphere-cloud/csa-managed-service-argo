@@ -16,6 +16,12 @@ router.get<object, MessageResponse>("/", (req, res) => {
 
 // Authentication middleware
 function authenticateToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+    // Skip authentication in development mode
+    if (env.NODE_ENV === 'development') {
+        console.warn('⚠️  Authentication disabled in development mode');
+        return next();
+    }
+
     // Get the Authorization header from the request
     const authHeader = req.headers['authorization'];
     // The header format is "Bearer TOKEN", so split it to get the token

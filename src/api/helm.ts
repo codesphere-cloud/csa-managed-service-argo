@@ -263,9 +263,12 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+    console.warn(`📥 POST /api/v1/helm - Creating release with ID: ${req.body?.id}`);
+
     const validationResult = createManagedServiceRequestSchema.safeParse(req.body);
 
     if (!validationResult.success) {
+      console.error('❌ Validation failed:', validationResult.error.issues);
       return res.status(400).json({
         message: 'Invalid request body',
         errors: validationResult.error.issues,
@@ -273,9 +276,11 @@ router.post('/', async (req, res) => {
     }
 
     const { id, config, secrets } = validationResult.data;
+    console.warn(`✅ Validation passed for ID: ${id}`);
 
     await helmManager.createRelease(id, config, secrets);
 
+    console.warn(`✅ Release created successfully for ID: ${id}`);
     // Return empty body (Codesphere spec)
     res.status(201).send();
   } catch (error) {

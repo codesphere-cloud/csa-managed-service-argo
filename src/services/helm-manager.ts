@@ -1,5 +1,6 @@
 import * as k8s from "@kubernetes/client-node";
 
+import { env, globalConfig } from "../env.js";
 import type { Config, HelmReleaseMetadata, Secrets } from "../types/config.js";
 
 import { helmClient } from "./helm.js";
@@ -19,9 +20,15 @@ export class HelmManager {
 
     if (kubeConfigPath) {
       this.kubeConfig.loadFromFile(kubeConfigPath);
+      if (env.NODE_ENV === "development") {
+        console.warn(`🔧 HelmManager using kubeconfig: ${kubeConfigPath}`);
+      }
     }
     else {
       this.kubeConfig.loadFromDefault();
+      if (env.NODE_ENV === "development") {
+        console.warn("🔧 HelmManager using default kubeconfig");
+      }
     }
 
     this.k8sApi = this.kubeConfig.makeApiClient(k8s.CoreV1Api);
@@ -35,14 +42,26 @@ export class HelmManager {
       await this.k8sApi.readNamespace({ name: this.metadataNamespace });
     }
     catch (error: any) {
-      if (error.statusCode === 404) {
+      if (error.statusCode === 404 || error.code === 404) {
         // Create the namespace
         const namespace: k8s.V1Namespace = {
           metadata: {
             name: this.metadataNamespace,
           },
         };
-        await this.k8sApi.createNamespace({ body: namespace });
+        try {
+          await this.k8sApi.createNamespace({ body: namespace });
+          if (env.NODE_ENV === "development") {
+            console.warn(`✅ Created metadata namespace: ${this.metadataNamespace}`);
+          }
+        }
+        catch (createError: any) {
+          // If namespace already exists (409 conflict), ignore
+          if (createError.statusCode === 409 || createError.code === 409) {
+            return;
+          }
+          throw createError;
+        }
       }
       else {
         throw error;
@@ -76,7 +95,7 @@ export class HelmManager {
       });
     }
     catch (error: any) {
-      if (error.statusCode === 409) {
+      if (error.statusCode === 409 || error.code === 409) {
         // ConfigMap already exists, update it
         await this.k8sApi.replaceNamespacedConfigMap({
           name: `helm-release-${metadata.id}`,
@@ -107,7 +126,7 @@ export class HelmManager {
       return null;
     }
     catch (error: any) {
-      if (error.statusCode === 404) {
+      if (error.statusCode === 404 || error.code === 404) {
         return null;
       }
       throw error;
@@ -125,7 +144,7 @@ export class HelmManager {
       });
     }
     catch (error: any) {
-      if (error.statusCode === 404) {
+      if (error.statusCode === 404 || error.code === 404) {
         // Already deleted, ignore
         return;
       }
@@ -137,32 +156,44 @@ export class HelmManager {
    * List all managed Helm releases
    */
   async listReleases(ids?: string[]): Promise<HelmReleaseMetadata[]> {
-    await this.ensureMetadataNamespace();
+    try {
+      await this.ensureMetadataNamespace();
 
-    const labelSelector = `${this.metadataLabelKey}`;
-    const configMaps = await this.k8sApi.listNamespacedConfigMap({
-      namespace: this.metadataNamespace,
-      labelSelector,
-    });
+      const labelSelector = `${this.metadataLabelKey}`;
+      const configMaps = await this.k8sApi.listNamespacedConfigMap({
+        namespace: this.metadataNamespace,
+        labelSelector,
+      });
 
-    const releases: HelmReleaseMetadata[] = [];
+      const releases: HelmReleaseMetadata[] = [];
 
-    for (const configMap of configMaps.items) {
-      if (configMap.data?.metadata) {
-        const metadata: HelmReleaseMetadata = JSON.parse(configMap.data.metadata);
+      for (const configMap of configMaps.items) {
+        if (configMap.data?.metadata) {
+          const metadata: HelmReleaseMetadata = JSON.parse(configMap.data.metadata);
 
-        // Filter by IDs if provided
-        if (!ids || ids.length === 0 || ids.includes(metadata.id)) {
-          releases.push(metadata);
+          // Filter by IDs if provided
+          if (!ids || ids.length === 0 || ids.includes(metadata.id)) {
+            releases.push(metadata);
+          }
         }
       }
-    }
 
-    return releases;
+      return releases;
+    }
+    catch {
+      // If we can't access metadata (e.g., namespace doesn't exist or no permissions),
+      // return empty list or log warning in development
+      if (env.NODE_ENV === "development") {
+        console.warn(
+          `⚠️  Cannot access metadata namespace (${this.metadataNamespace}). This is normal if no releases have been created yet.`,
+        );
+      }
+      return [];
+    }
   }
 
   /**
-   * Create a new Helm release
+   * Create a new Helm release (idempotent)
    */
   async createRelease(
     id: string,
@@ -170,8 +201,20 @@ export class HelmManager {
     secrets?: Secrets,
     userToken?: string,
   ): Promise<HelmReleaseMetadata> {
+    // Check if release already exists (idempotency)
+    const existingMetadata = await this.getMetadata(id);
+    if (existingMetadata) {
+      if (env.NODE_ENV === "development") {
+        console.warn(
+          `⚠️  Release ${existingMetadata.releaseName} already exists for ID ${id}, returning existing metadata`,
+        );
+      }
+      return existingMetadata;
+    }
+
     const { kubeconfig, namespace } = await kubeconfigProvider.getKubeconfig(id, userToken);
 
+    // Use managed-{id} as the release name
     const releaseName = `managed-${id}`;
 
     // Merge helmValues from config and sensitiveHelmValues from secrets
@@ -320,4 +363,4 @@ export class HelmManager {
   }
 }
 
-export const helmManager = new HelmManager();
+export const helmManager = new HelmManager(globalConfig.fallbackKubeconfig);

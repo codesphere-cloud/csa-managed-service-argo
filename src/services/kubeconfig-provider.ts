@@ -1,4 +1,4 @@
-import { globalConfig } from "../env.js";
+import { env, globalConfig } from "../env.js";
 
 export type KubeconfigResponse = {
   kubeconfig: string;
@@ -31,6 +31,10 @@ export class KubeconfigProvider {
     userToken?: string,
   ): Promise<KubeconfigResponse> {
     const endpoint = globalConfig.kubeconfigProviderEndpoint!;
+
+    if (env.NODE_ENV === "development") {
+      console.warn(`🔧 Fetching kubeconfig from external provider: ${endpoint} for ID: ${managedServiceId}`);
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -72,6 +76,12 @@ export class KubeconfigProvider {
     }
 
     const namespace = globalConfig.namespacePattern.replace("{id}", managedServiceId);
+
+    if (env.NODE_ENV === "development") {
+      console.warn(
+        `🔧 Using fallback kubeconfig: ${globalConfig.fallbackKubeconfig} with namespace: ${namespace} for ID: ${managedServiceId}`,
+      );
+    }
 
     return {
       kubeconfig: globalConfig.fallbackKubeconfig,
