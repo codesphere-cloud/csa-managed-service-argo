@@ -1,8 +1,8 @@
 import * as k8s from "@kubernetes/client-node";
 
-import { env, globalConfig } from "../env.js";
 import type { Config, HelmReleaseMetadata, Secrets } from "../types/config.js";
 
+import { env, globalConfig } from "../env.js";
 import { helmClient } from "./helm.js";
 import { kubeconfigProvider } from "./kubeconfig-provider.js";
 
@@ -340,10 +340,15 @@ export class HelmManager {
       const { kubeconfig } = await kubeconfigProvider.getKubeconfig(id, userToken);
 
       const status = await helmClient.status(metadata.releaseName, metadata.namespace, kubeconfig);
+
+      if (env.NODE_ENV === "development") {
+        console.warn(`📊 Helm status for ${metadata.releaseName}: ${status.info?.status || "undefined"}`);
+      }
+
       return {
         metadata,
         status: {
-          status: status.info?.status,
+          status: status.info?.status || "pending",
           description: status.info?.description,
           lastDeployed: status.info?.last_deployed,
           notes: status.info?.notes,
@@ -352,6 +357,9 @@ export class HelmManager {
     }
     catch (error) {
       // If we can't get status, return metadata only
+      if (env.NODE_ENV === "development") {
+        console.warn(`⚠️  Failed to get Helm status for ${metadata.releaseName}:`, error);
+      }
       return {
         metadata,
         status: {

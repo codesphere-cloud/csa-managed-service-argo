@@ -120,6 +120,8 @@ router.get('/', async (req, res) => {
       releases.map(async (release) => {
         try {
           const details = await helmManager.getReleaseDetails(release.id);
+          const statusValue = details.status.status || 'pending';
+
           return [
             release.id,
             {
@@ -132,15 +134,16 @@ router.get('/', async (req, res) => {
               details: {
                 releaseName: release.releaseName,
                 namespace: release.namespace,
-                status: details.status.status,
-                lastDeployed: details.status.lastDeployed,
+                status: statusValue,
+                lastDeployed: details.status.lastDeployed || null,
                 createdAt: release.createdAt,
                 updatedAt: release.updatedAt,
               },
             },
           ];
-        } catch {
+        } catch (error) {
           // If we can't get live details, return basic info
+          console.warn(`⚠️  Failed to get details for release ${release.id}:`, error);
           return [
             release.id,
             {
@@ -154,6 +157,7 @@ router.get('/', async (req, res) => {
                 releaseName: release.releaseName,
                 namespace: release.namespace,
                 status: 'unknown',
+                lastDeployed: null,
                 createdAt: release.createdAt,
                 updatedAt: release.updatedAt,
               },

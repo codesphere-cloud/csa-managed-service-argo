@@ -1,12 +1,12 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as os from 'os';
+import { exec } from "node:child_process";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
-export interface HelmInstallOptions {
+export type HelmInstallOptions = {
   releaseName: string;
   namespace: string;
   repoUrl: string;
@@ -15,25 +15,25 @@ export interface HelmInstallOptions {
   kubeConfig?: string;
   values?: Record<string, any>;
   createNamespace?: boolean;
-}
+};
 
-export interface HelmUpgradeOptions extends HelmInstallOptions {
+export type HelmUpgradeOptions = {
   install?: boolean; // If true, install if not already installed
-}
+} & HelmInstallOptions;
 
-export interface HelmUninstallOptions {
+export type HelmUninstallOptions = {
   releaseName: string;
   namespace: string;
   kubeConfig?: string;
-}
+};
 
-export interface HelmListOptions {
+export type HelmListOptions = {
   namespace?: string;
   kubeConfig?: string;
   allNamespaces?: boolean;
-}
+};
 
-export interface HelmRelease {
+export type HelmRelease = {
   name: string;
   namespace: string;
   revision: string;
@@ -41,7 +41,7 @@ export interface HelmRelease {
   status: string;
   chart: string;
   appVersion: string;
-}
+};
 
 export class HelmClient {
   /**
@@ -60,24 +60,21 @@ export class HelmClient {
     } = options;
 
     // Clone the Git repository to a temporary directory
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'helm-chart-'));
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "helm-chart-"));
 
     try {
-      // Clone the repository
       await execAsync(`git clone --depth 1 --branch ${targetRevision} ${repoUrl} ${tempDir}`);
 
       const fullChartPath = path.join(tempDir, chartPath);
 
-      // Build the helm install command
-      const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : '';
+      const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : "";
       const namespaceArg = `--namespace ${namespace}`;
-      const createNsArg = createNamespace ? '--create-namespace' : '';
+      const createNsArg = createNamespace ? "--create-namespace" : "";
 
-      // Create values file if provided
-      let valuesArg = '';
+      let valuesArg = "";
       if (values && Object.keys(values).length > 0) {
-        const valuesFile = path.join(tempDir, 'values.yaml');
-        const yaml = await import('js-yaml');
+        const valuesFile = path.join(tempDir, "values.yaml");
+        const yaml = await import("js-yaml");
         await fs.writeFile(valuesFile, yaml.dump(values));
         valuesArg = `--values ${valuesFile}`;
       }
@@ -87,10 +84,12 @@ export class HelmClient {
       console.log(`Executing: ${command}`);
       const { stdout, stderr } = await execAsync(command);
 
-      if (stdout) console.log(stdout);
-      if (stderr) console.error(stderr);
-    } finally {
-      // Clean up temporary directory
+      if (stdout)
+        console.log(stdout);
+      if (stderr)
+        console.error(stderr);
+    }
+    finally {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   }
@@ -110,25 +109,21 @@ export class HelmClient {
       install = true,
     } = options;
 
-    // Clone the Git repository to a temporary directory
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'helm-chart-'));
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "helm-chart-"));
 
     try {
-      // Clone the repository
       await execAsync(`git clone --depth 1 --branch ${targetRevision} ${repoUrl} ${tempDir}`);
 
       const fullChartPath = path.join(tempDir, chartPath);
 
-      // Build the helm upgrade command
-      const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : '';
+      const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : "";
       const namespaceArg = `--namespace ${namespace}`;
-      const installArg = install ? '--install' : '';
+      const installArg = install ? "--install" : "";
 
-      // Create values file if provided
-      let valuesArg = '';
+      let valuesArg = "";
       if (values && Object.keys(values).length > 0) {
-        const valuesFile = path.join(tempDir, 'values.yaml');
-        const yaml = await import('js-yaml');
+        const valuesFile = path.join(tempDir, "values.yaml");
+        const yaml = await import("js-yaml");
         await fs.writeFile(valuesFile, yaml.dump(values));
         valuesArg = `--values ${valuesFile}`;
       }
@@ -138,10 +133,12 @@ export class HelmClient {
       console.log(`Executing: ${command}`);
       const { stdout, stderr } = await execAsync(command);
 
-      if (stdout) console.log(stdout);
-      if (stderr) console.error(stderr);
-    } finally {
-      // Clean up temporary directory
+      if (stdout)
+        console.log(stdout);
+      if (stderr)
+        console.error(stderr);
+    }
+    finally {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   }
@@ -152,7 +149,7 @@ export class HelmClient {
   async uninstall(options: HelmUninstallOptions): Promise<void> {
     const { releaseName, namespace, kubeConfig } = options;
 
-    const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : '';
+    const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : "";
     const namespaceArg = `--namespace ${namespace}`;
 
     const command = `helm uninstall ${releaseName} ${namespaceArg} ${kubeconfigArg}`.trim();
@@ -160,8 +157,10 @@ export class HelmClient {
     console.log(`Executing: ${command}`);
     const { stdout, stderr } = await execAsync(command);
 
-    if (stdout) console.log(stdout);
-    if (stderr) console.error(stderr);
+    if (stdout)
+      console.log(stdout);
+    if (stderr)
+      console.error(stderr);
   }
 
   /**
@@ -170,10 +169,10 @@ export class HelmClient {
   async list(options: HelmListOptions = {}): Promise<HelmRelease[]> {
     const { namespace, kubeConfig, allNamespaces = false } = options;
 
-    const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : '';
-    const namespaceArg = namespace ? `--namespace ${namespace}` : '';
-    const allNamespacesArg = allNamespaces ? '--all-namespaces' : '';
-    const outputArg = '--output json';
+    const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : "";
+    const namespaceArg = namespace ? `--namespace ${namespace}` : "";
+    const allNamespacesArg = allNamespaces ? "--all-namespaces" : "";
+    const outputArg = "--output json";
 
     const command = `helm list ${namespaceArg} ${allNamespacesArg} ${outputArg} ${kubeconfigArg}`.trim();
 
@@ -191,9 +190,9 @@ export class HelmClient {
    * Get status of a Helm release
    */
   async status(releaseName: string, namespace: string, kubeConfig?: string): Promise<any> {
-    const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : '';
+    const kubeconfigArg = kubeConfig ? `--kubeconfig ${kubeConfig}` : "";
     const namespaceArg = `--namespace ${namespace}`;
-    const outputArg = '--output json';
+    const outputArg = "--output json";
 
     const command = `helm status ${releaseName} ${namespaceArg} ${outputArg} ${kubeconfigArg}`.trim();
 

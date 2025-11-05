@@ -1,5 +1,6 @@
-import express from 'express';
-import { kubeconfigProvider } from '../services/kubeconfig-provider';
+import express from "express";
+
+import { kubeconfigProvider } from "../services/kubeconfig-provider.js";
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
  *
  * GET /api/v1/kubeconfig/:managedServiceId
  */
-router.get('/:managedServiceId', async (req, res) => {
+router.get("/:managedServiceId", async (req, res) => {
   try {
     const { managedServiceId } = req.params;
 
@@ -19,11 +20,12 @@ router.get('/:managedServiceId', async (req, res) => {
       kubeconfig: result.kubeconfig,
       namespace: result.namespace,
     });
-  } catch (error) {
-    console.error('Error providing kubeconfig:', error);
+  }
+  catch (error) {
+    console.error("Error providing kubeconfig:", error);
     res.status(500).json({
-      message: 'Error providing kubeconfig',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      message: "Error providing kubeconfig",
+      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });

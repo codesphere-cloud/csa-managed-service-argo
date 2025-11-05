@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Global configuration schema
 export const globalConfigSchema = z.object({
@@ -7,13 +7,10 @@ export const globalConfigSchema = z.object({
   fallbackKubeconfig: z.string().optional(),
 });
 
-// Plan schema (Codesphere spec)
 export const planSchema = z.object({
   id: z.number(),
-  // Plan-specific parameters can be added here
 });
 
-// Config schema (Codesphere spec) - Helm chart configuration
 export const configSchema = z.object({
   repoUrl: z.string().url(),
   targetRevision: z.string(),
@@ -24,14 +21,14 @@ export const configSchema = z.object({
     z.string().transform((val) => {
       try {
         return JSON.parse(val);
-      } catch {
+      }
+      catch {
         return {};
       }
     }),
   ]).optional().default({}),
 });
 
-// Secrets schema (Codesphere spec) - Sensitive configuration
 export const secretsSchema = z.object({
   // Sensitive Helm values can go here - can be object or stringified object
   sensitiveHelmValues: z.union([
@@ -39,14 +36,14 @@ export const secretsSchema = z.object({
     z.string().transform((val) => {
       try {
         return JSON.parse(val);
-      } catch {
+      }
+      catch {
         return {};
       }
     }),
   ]).optional().default({}),
 }).optional();
 
-// Request body for creating a managed service (Codesphere spec)
 export const createManagedServiceRequestSchema = z.object({
   id: z.string().uuid(),
   plan: planSchema,
@@ -54,7 +51,6 @@ export const createManagedServiceRequestSchema = z.object({
   secrets: secretsSchema,
 });
 
-// Request body for updating a managed service (Codesphere spec)
 export const updateManagedServiceRequestSchema = z.object({
   config: configSchema.partial().optional(),
   secrets: secretsSchema,
@@ -69,7 +65,7 @@ export type CreateManagedServiceRequest = z.infer<typeof createManagedServiceReq
 export type UpdateManagedServiceRequest = z.infer<typeof updateManagedServiceRequestSchema>;
 
 // Helm release metadata stored in Kubernetes
-export interface HelmReleaseMetadata {
+export type HelmReleaseMetadata = {
   id: string;
   releaseName: string;
   namespace: string;
@@ -78,4 +74,4 @@ export interface HelmReleaseMetadata {
   path: string;
   createdAt: string;
   updatedAt: string;
-}
+};
